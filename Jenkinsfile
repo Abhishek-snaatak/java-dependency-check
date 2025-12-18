@@ -6,10 +6,6 @@ pipeline {
         maven 'maven'
     }
 
-    environment {
-        DC_REPORT_DIR = "${WORKSPACE}/dependency-check-report"
-    }
-
     stages {
 
         stage('Checkout') {
@@ -19,84 +15,75 @@ pipeline {
             }
         }
 
-        stage('Dependency Scan (OWASP)') {
+        stage('Dependency Scan') {
             steps {
-                sh '''
-                mkdir -p dependency-check-report
-
-                mvn verify -DskipTests \
-                  org.owasp:dependency-check-maven:9.0.9:check \
-                  -Dformat=HTML \
-                  -DoutputDirectory=dependency-check-report \
-                  -DdataMirroringEnabled=false
-                '''
+                sh 'mvn -DskipTests org.owasp:dependency-check-maven:check'
             }
         }
-
     }
 
-    post {
-
-        success {
-            script {
-                def timestamp = sh(
-                    script: "date +'%Y-%m-%d %H:%M:%S'",
-                    returnStdout: true
-                ).trim()
-
-                def msg = """✅ BUILD SUCCESS
+  post {
+    success {
+        script {
+            def timestamp = sh(
+                script: "date +'%Y-%m-%d %H:%M:%S'",
+                returnStdout: true
+            ).trim()
+            def msg = """✅ BUILD SUCCESS: 
 • Job: ${env.JOB_NAME}
 • Build Number: #${env.BUILD_NUMBER}
-• Time (IST): ${timestamp}
-• Report Path: ${DC_REPORT_DIR}
-• Build URL: ${env.BUILD_URL}
-"""
-
-                withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
-                    sh """
-                    curl -X POST -H 'Content-Type: application/json' \
-                    --data '{"text":"${msg}"}' \
-                    "$SLACK_WEBHOOK_URL"
-                    """
-                }
-
-                mail to: 'ps191701@gmail.com',
-                     subject: "✅ Dependency Scan SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                     body: msg
-            }
-        }
-
-        failure {
-            script {
-                def timestamp = sh(
-                    script: "date +'%Y-%m-%d %H:%M:%S'",
-                    returnStdout: true
-                ).trim()
-
-                def msg = """❌ BUILD FAILURE
-• Job: ${env.JOB_NAME}
-• Build Number: #${env.BUILD_NUMBER}
+• Triggered By: Jenkins
 • Time (IST): ${timestamp}
 • Build URL: ${env.BUILD_URL}
 """
-
-                withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
-                    sh """
-                    curl -X POST -H 'Content-Type: application/json' \
-                    --data '{"text":"${msg}"}' \
-                    "$SLACK_WEBHOOK_URL"
-                    """
+            withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
+                def payload = groovy.json.JsonOutput.toJson([text: msg])
+                withEnv(["PAYLOAD=${payload}"]) {
+                    sh '''
+                      curl -s -X POST \
+                        -H "Content-Type: application/json" \
+                        --data "$PAYLOAD" \
+                        "$SLACK_WEBHOOK_URL"
+                    '''
                 }
-
-                mail to: 'ps191701@gmail.com',
-                     subject: "❌ Dependency Scan FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                     body: msg
             }
-        }
-
-        always {
-            echo "Archiving OWASP Dependency Check Reports..."
-            archiveArtifacts artifacts: 'dependency-check-report/**', allowEmptyArchive: true
+            mail to: 'ps191701@gmail.com',
+                 subject: "✅ BUILD SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: msg
         }
     }
+    failure {
+        script {
+            def timestamp = sh(
+                script: "date +'%Y-%m-%d %H:%M:%S'",
+                returnStdout: true
+            ).trim()
+            def msg = """❌ BUILD FAILURE
+• Job: ${env.JOB_NAME}
+• Build Number: #${env.BUILD_NUMBER}
+• Triggered By: Jenkins
+• Time (IST): ${timestamp}
+• Build URL: ${env.BUILD_URL}
+"""
+            withCredentials([string(credentialsId: 'slack-webhook', variable: 'SLACK_WEBHOOK_URL')]) {
+                def payload = groovy.json.JsonOutput.toJson([text: msg])
+                withEnv(["PAYLOAD=${payload}"]) {
+                    sh '''
+                      curl -s -X POST \
+                        -H "Content-Type: application/json" \
+                        --data "$PAYLOAD" \
+                        "$SLACK_WEBHOOK_URL"
+                    '''
+                }
+            }
+            mail to: 'ps191701@gmail.com',
+                 subject: "❌ BUILD FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: msg
+        }
+    }
+    always {
+          echo "Archiving Dependency Check Reports..."
+          archiveArtifacts artifacts: 'target/dependency-check-report.*', allowEmptyArchive: true
+    }
+  }
 }
