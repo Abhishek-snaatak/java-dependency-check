@@ -18,16 +18,17 @@ pipeline {
                     url: 'https://github.com/OT-MICROSERVICES/salary-api'
             }
         }
-stage('Dependency Scan (OWASP)') {
+
+        stage('Dependency Scan (OWASP)') {
     steps {
-        sh """
+        sh '''
         mkdir -p dependency-check-report
 
         mvn verify -DskipTests \
-            dependency-check:check \
-            -Dformat=ALL \
-            -DoutputDirectory=dependency-check-report
-        """
+          org.owasp:dependency-check-maven:9.0.9:check \
+          -Dformat=ALL \
+          -DoutputDirectory=dependency-check-report
+        '''
     }
 }
 
