@@ -19,20 +19,23 @@ pipeline {
             }
         }
 
-        stage('Dependency Scan (OWASP)') {
+stage('Dependency Scan (OWASP)') {
     steps {
-        sh '''
-        mkdir -p dependency-check-report
+        withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
+            sh '''
+            mkdir -p dependency-check-report
 
-        mvn verify -DskipTests \
-          org.owasp:dependency-check-maven:9.0.9:check \
-          -Dformat=ALL \
-          -DoutputDirectory=dependency-check-report
-        '''
+            mvn verify -DskipTests \
+              org.owasp:dependency-check-maven:9.0.9:check \
+              -DnvdApiKey=$NVD_API_KEY \
+              -Dformat=ALL \
+              -DoutputDirectory=dependency-check-report
+            '''
+        }
     }
 }
 
-    }
+
 
     post {
 
