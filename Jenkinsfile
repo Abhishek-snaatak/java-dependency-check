@@ -21,15 +21,16 @@ pipeline {
 stage('Dependency Scan (OWASP)') {
     steps {
         sh """
-        mkdir -p ${DC_REPORT_DIR}
+        mkdir -p dependency-check-report
 
         mvn verify -DskipTests \
-            org.owasp:dependency-check-maven:check \
+            dependency-check:check \
             -Dformat=ALL \
-            -DoutputDirectory=${DC_REPORT_DIR}
+            -DoutputDirectory=dependency-check-report
         """
     }
 }
+
     }
 
     post {
