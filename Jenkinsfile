@@ -19,7 +19,8 @@ pipeline {
             }
         }
 
-stage('Dependency Scan (OWASP)') {
+
+        stage('Dependency Scan (OWASP)') {
     steps {
         withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
             sh '''
